@@ -2,13 +2,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 
+#include "cli.h"
 #include "framebuffer.h"
 #include "math.h"
 #include "mesh.h"
-
-const int WIDTH = 800;
-const int HEIGHT = 600;
 
 void draw_line(Framebuffer &framebuffer, Vec2Int p0, Vec2Int p1, Vec3 color) {
   int32_t dx = std::abs(p1.x - p0.x);
@@ -32,21 +31,34 @@ void draw_line(Framebuffer &framebuffer, Vec2Int p0, Vec2Int p1, Vec3 color) {
 }
 
 int main(int argc, char **argv) {
-  Framebuffer framebuffer(WIDTH, HEIGHT);
-  Mesh mesh;
-  mesh.load_from_obj("mesh.obj");
-  for (size_t i = 0; i < mesh.face_count(); ++i) {
-    auto face = mesh.face(i);
-    for (size_t j = 0; j < 3; ++j) {
-      Vec3 v0 = mesh.vertex(face[j]).position;
-      Vec3 v1 = mesh.vertex(face[(j + 1) % 3]).position;
-      Vec2Int p0(static_cast<int32_t>(v0.x * WIDTH / 2 + WIDTH / 2),
-                 static_cast<int32_t>(-v0.y * HEIGHT / 2 + HEIGHT / 2));
-      Vec2Int p1(static_cast<int32_t>(v1.x * WIDTH / 2 + WIDTH / 2),
-                 static_cast<int32_t>(-v1.y * HEIGHT / 2 + HEIGHT / 2));
-      draw_line(framebuffer, p0, p1, Vec3(1.0f, 1.0f, 1.0f));
+  RenderConfig cfg = parse_args(argc, argv);
+
+  try {
+    Framebuffer framebuffer(cfg.width, cfg.height);
+    Mesh mesh;
+    mesh.load_from_obj(cfg.input);
+    for (size_t i = 0; i < mesh.face_count(); ++i) {
+      auto face = mesh.face(i);
+      for (size_t j = 0; j < 3; ++j) {
+        Vec3 v0 = mesh.vertex(face[j]).position;
+        Vec3 v1 = mesh.vertex(face[(j + 1) % 3]).position;
+        Vec2Int p0(
+            static_cast<int32_t>(v0.x * cfg.width / 2 + cfg.width / 2),
+            static_cast<int32_t>(-v0.y * cfg.height / 2 + cfg.height / 2));
+        Vec2Int p1(
+            static_cast<int32_t>(v1.x * cfg.width / 2 + cfg.width / 2),
+            static_cast<int32_t>(-v1.y * cfg.height / 2 + cfg.height / 2));
+        draw_line(framebuffer, p0, p1, Vec3(1.0f, 1.0f, 1.0f));
+      }
     }
+
+    if (!framebuffer.save(cfg.output)) {
+      throw std::runtime_error("failed to write output: " + cfg.output);
+    }
+    std::cout << "Rendered " << cfg.input << " -> " << cfg.output << std::endl;
+  } catch (const std::exception &e) {
+    std::cerr << "error: " << e.what() << "\n";
+    return 1;
   }
-  framebuffer.save("output.png");
   return 0;
 }

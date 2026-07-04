@@ -21,7 +21,7 @@ class Framebuffer {
     colors_[index(pos)] = color;
   }
 
-  void save(const std::string &filename) const;
+  bool save(const std::string &filename) const;
 
  private:
   uint32_t width_, height_;
